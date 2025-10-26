@@ -1,227 +1,260 @@
+## nanoGPT
 
-# nanoGPT
+### 莎士比亚字符级数据集实验
 
-![nanoGPT](assets/nanogpt.jpg)
+#### 1、配置环境
 
-The simplest, fastest repository for training/finetuning medium-sized GPTs. It is a rewrite of [minGPT](https://github.com/karpathy/minGPT) that prioritizes teeth over education. Still under active development, but currently the file `train.py` reproduces GPT-2 (124M) on OpenWebText, running on a single 8XA100 40GB node in about 4 days of training. The code itself is plain and readable: `train.py` is a ~300-line boilerplate training loop and `model.py` a ~300-line GPT model definition, which can optionally load the GPT-2 weights from OpenAI. That's it.
-
-![repro124m](assets/gpt2_124M_loss.png)
-
-Because the code is so simple, it is very easy to hack to your needs, train new models from scratch, or finetune pretrained checkpoints (e.g. biggest one currently available as a starting point would be the GPT-2 1.3B model from OpenAI).
-
-## install
-
-```
+```bash
+# 下载项目
+git clone https://github.com/ChennXIao/nanogpt.git
+# 配置环境
 pip install torch numpy transformers datasets tiktoken wandb tqdm
 ```
 
-Dependencies:
+#### 2、莎士比亚字符级数据集
 
-- [pytorch](https://pytorch.org) <3
-- [numpy](https://numpy.org/install/) <3
--  `transformers` for huggingface transformers <3 (to load GPT-2 checkpoints)
--  `datasets` for huggingface datasets <3 (if you want to download + preprocess OpenWebText)
--  `tiktoken` for OpenAI's fast BPE code <3
--  `wandb` for optional logging <3
--  `tqdm` for progress bars <3
-
-## quick start
-
-If you are not a deep learning professional and you just want to feel the magic and get your feet wet, the fastest way to get started is to train a character-level GPT on the works of Shakespeare. First, we download it as a single (1MB) file and turn it from raw text into one large stream of integers:
-
-```sh
+```bash
+cd nanogpt
+# 下载数据集到data文件夹下面
 python data/shakespeare_char/prepare.py
-```
-
-This creates a `train.bin` and `val.bin` in that data directory. Now it is time to train your GPT. The size of it very much depends on the computational resources of your system:
-
-**I have a GPU**. Great, we can quickly train a baby GPT with the settings provided in the [config/train_shakespeare_char.py](config/train_shakespeare_char.py) config file:
-
-```sh
+# 开始训练
 python train.py config/train_shakespeare_char.py
-```
-
-If you peek inside it, you'll see that we're training a GPT with a context size of up to 256 characters, 384 feature channels, and it is a 6-layer Transformer with 6 heads in each layer. On one A100 GPU this training run takes about 3 minutes and the best validation loss is 1.4697. Based on the configuration, the model checkpoints are being written into the `--out_dir` directory `out-shakespeare-char`. So once the training finishes we can sample from the best model by pointing the sampling script at this directory:
-
-```sh
+# 开始测试：生成推理结果
 python sample.py --out_dir=out-shakespeare-char
 ```
 
-This generates a few samples, for example:
+#### 3、训练结果
 
+```bash
+step 0: train loss 4.2874, val loss 4.2823
+iter 0: loss 4.2654, time 13500.54ms, mfu -100.00%
+iter 10: loss 3.1462, time 13.86ms, mfu 26.88%
+iter 20: loss 2.7321, time 13.74ms, mfu 26.90%
+iter 30: loss 2.6184, time 13.75ms, mfu 26.92%
+iter 40: loss 2.5757, time 13.75ms, mfu 26.94%
+iter 50: loss 2.5249, time 13.75ms, mfu 26.96%
+iter 60: loss 2.5143, time 13.77ms, mfu 26.97%
+iter 70: loss 2.4947, time 13.77ms, mfu 26.98%
+iter 80: loss 2.4935, time 13.76ms, mfu 26.99%
+iter 90: loss 2.4691, time 13.76ms, mfu 27.00%
 ```
+
+#### 4、测试结果
+
+```bash
 ANGELO:
-And cowards it be strawn to my bed,
-And thrust the gates of my threats,
-Because he that ale away, and hang'd
-An one with him.
+And I will be ready to a serious business,
+So many times shall their wisdoms. What think'st thou, my face?
 
-DUKE VINCENTIO:
-I thank your eyes against it.
+AUFIDIUS:
+You shall be there, my lord.
 
-DUKE VINCENTIO:
-Then will answer him to save the malm:
-And what have you tyrannous shall do this?
+CORIOLANUS:
+I content that I shall not die nor only.
 
-DUKE VINCENTIO:
-If you have done evils of all disposition
-To end his power, the day of thrust for a common men
-That I leave, to fight with over-liking
-Hasting in a roseman.
+CORIOLANUS:
+The consul consul conspiracts him yet:
+The present thereof whom I should that move him when I in hear
+An o'erwhelm he is content.
+
+CORIOLANUS:
+Mantly forth on; I know not when I would think
+The ground.
+
+MENENIUS:
+Here is a rose man a gentleman to the archbricted
+Make your voic
 ```
 
-lol  `¯\_(ツ)_/¯`. Not bad for a character-level model after 3 minutes of training on a GPU. Better results are quite likely obtainable by instead finetuning a pretrained GPT-2 model on this dataset (see finetuning section later).
+### 红楼梦数据集实验
 
-**I only have a macbook** (or other cheap computer). No worries, we can still train a GPT but we want to dial things down a notch. I recommend getting the bleeding edge PyTorch nightly ([select it here](https://pytorch.org/get-started/locally/) when installing) as it is currently quite likely to make your code more efficient. But even without it, a simple train run could look as follows:
+#### 1、创建数据集
 
-```sh
-python train.py config/train_shakespeare_char.py --device=cpu --compile=False --eval_iters=20 --log_interval=1 --block_size=64 --batch_size=12 --n_layer=4 --n_head=4 --n_embd=128 --max_iters=2000 --lr_decay_iters=2000 --dropout=0.0
+数据集都保存在data下面，所以需要在data下面创建一个hongloumeng_char_local文件夹，然后创建一个input.txt文件存储红楼梦小说的文本内容，然后创建一个prepare.py文件用来进行分词和划分
+
+```bash
+cd nanogpt/data
+# 创建一个红楼梦文件夹，用于存放数据
+mkdir hongloumeng_char_local
+# 在红楼梦文件夹里创建两个文件
+cd hongloumeng_char_local
+# 创建一个input的文本文件，里面放入红楼梦任意章节的内容
+touch input.txt
+# 创建一个python文件
+vi prepare.py
 ```
 
-Here, since we are running on CPU instead of GPU we must set both `--device=cpu` and also turn off PyTorch 2.0 compile with `--compile=False`. Then when we evaluate we get a bit more noisy but faster estimate (`--eval_iters=20`, down from 200), our context size is only 64 characters instead of 256, and the batch size only 12 examples per iteration, not 64. We'll also use a much smaller Transformer (4 layers, 4 heads, 128 embedding size), and decrease the number of iterations to 2000 (and correspondingly usually decay the learning rate to around max_iters with `--lr_decay_iters`). Because our network is so small we also ease down on regularization (`--dropout=0.0`). This still runs in about ~3 minutes, but gets us a loss of only 1.88 and therefore also worse samples, but it's still good fun:
+在 data/hongloumeng_char_local/prepare.py中写入下面的内容，执行后会在data/hongloumeng_char_local目录中生成三个文件
 
-```sh
-python sample.py --out_dir=out-shakespeare-char --device=cpu
-```
-Generates samples like this:
+- ‘train.bin’ ： 训练集
+- ‘val.bin’ ：测试集
+- ‘meta.pkl’ ： “汉字/字符到整数值的映射关系”
 
-```
-GLEORKEN VINGHARD III:
-Whell's the couse, the came light gacks,
-And the for mought you in Aut fries the not high shee
-bot thou the sought bechive in that to doth groan you,
-No relving thee post mose the wear
-```
+```python
+# data/hongloumeng_char_local/prepare.py
 
-Not bad for ~3 minutes on a CPU, for a hint of the right character gestalt. If you're willing to wait longer, feel free to tune the hyperparameters, increase the size of the network, the context length (`--block_size`), the length of training, etc.
+"""
+Prepare the Shakespeare dataset for character-level language modeling.
+So instead of encoding with GPT-2 BPE tokens, we just map characters to ints.
+Will save train.bin, val.bin containing the ids, and meta.pkl containing the
+encoder and decoder and some other related info.
+"""
+import os
+import pickle
+import requests
+import numpy as np
 
-Finally, on Apple Silicon Macbooks and with a recent PyTorch version make sure to add `--device=mps` (short for "Metal Performance Shaders"); PyTorch then uses the on-chip GPU that can *significantly* accelerate training (2-3X) and allow you to use larger networks. See [Issue 28](https://github.com/karpathy/nanoGPT/issues/28) for more.
+# download the tiny shakespeare dataset
+input_file_path = os.path.join(os.path.dirname(__file__), 'input.txt')
 
-## reproducing GPT-2
+with open(input_file_path, 'r') as f:
+    data = f.read()
+print(f"length of dataset in characters: {len(data):,}")
 
-A more serious deep learning professional may be more interested in reproducing GPT-2 results. So here we go - we first tokenize the dataset, in this case the [OpenWebText](https://openwebtext2.readthedocs.io/en/latest/), an open reproduction of OpenAI's (private) WebText:
+# get all the unique characters that occur in this text
+chars = sorted(list(set(data)))
+vocab_size = len(chars)
+print("all the unique characters:", ''.join(chars))
+print(f"vocab size: {vocab_size:,}")
 
-```sh
-python data/openwebtext/prepare.py
-```
+# create a mapping from characters to integers
+stoi = { ch:i for i,ch in enumerate(chars) }
+itos = { i:ch for i,ch in enumerate(chars) }
+def encode(s):
+    return [stoi[c] for c in s] # encoder: take a string, output a list of integers
+def decode(l):
+    return ''.join([itos[i] for i in l]) # decoder: take a list of integers, output a string
 
-This downloads and tokenizes the [OpenWebText](https://huggingface.co/datasets/openwebtext) dataset. It will create a `train.bin` and `val.bin` which holds the GPT2 BPE token ids in one sequence, stored as raw uint16 bytes. Then we're ready to kick off training. To reproduce GPT-2 (124M) you'll want at least an 8X A100 40GB node and run:
+# create the train and test splits
+n = len(data)
+train_data = data[:int(n*0.9)]
+val_data = data[int(n*0.9):]
 
-```sh
-torchrun --standalone --nproc_per_node=8 train.py config/train_gpt2.py
-```
+# encode both to integers
+train_ids = encode(train_data)
+val_ids = encode(val_data)
+print(f"train has {len(train_ids):,} tokens")
+print(f"val has {len(val_ids):,} tokens")
 
-This will run for about 4 days using PyTorch Distributed Data Parallel (DDP) and go down to loss of ~2.85. Now, a GPT-2 model just evaluated on OWT gets a val loss of about 3.11, but if you finetune it it will come down to ~2.85 territory (due to an apparent domain gap), making the two models ~match.
+# export to bin files
+train_ids = np.array(train_ids, dtype=np.uint16)
+val_ids = np.array(val_ids, dtype=np.uint16)
+train_ids.tofile(os.path.join(os.path.dirname(__file__), 'train.bin'))
+val_ids.tofile(os.path.join(os.path.dirname(__file__), 'val.bin'))
 
-If you're in a cluster environment and you are blessed with multiple GPU nodes you can make GPU go brrrr e.g. across 2 nodes like:
+# save the meta information as well, to help us encode/decode later
+meta = {
+    'vocab_size': vocab_size,
+    'itos': itos,
+    'stoi': stoi,
+}
+with open(os.path.join(os.path.dirname(__file__), 'meta.pkl'), 'wb') as f:
+    pickle.dump(meta, f)
 
-```sh
-# Run on the first (master) node with example IP 123.456.123.456:
-torchrun --nproc_per_node=8 --nnodes=2 --node_rank=0 --master_addr=123.456.123.456 --master_port=1234 train.py
-# Run on the worker node:
-torchrun --nproc_per_node=8 --nnodes=2 --node_rank=1 --master_addr=123.456.123.456 --master_port=1234 train.py
-```
-
-It is a good idea to benchmark your interconnect (e.g. iperf3). In particular, if you don't have Infiniband then also prepend `NCCL_IB_DISABLE=1` to the above launches. Your multinode training will work, but most likely _crawl_. By default checkpoints are periodically written to the `--out_dir`. We can sample from the model by simply `python sample.py`.
-
-Finally, to train on a single GPU simply run the `python train.py` script. Have a look at all of its args, the script tries to be very readable, hackable and transparent. You'll most likely want to tune a number of those variables depending on your needs.
-
-## baselines
-
-OpenAI GPT-2 checkpoints allow us to get some baselines in place for openwebtext. We can get the numbers as follows:
-
-```sh
-$ python train.py config/eval_gpt2.py
-$ python train.py config/eval_gpt2_medium.py
-$ python train.py config/eval_gpt2_large.py
-$ python train.py config/eval_gpt2_xl.py
-```
-
-and observe the following losses on train and val:
-
-| model | params | train loss | val loss |
-| ------| ------ | ---------- | -------- |
-| gpt2 | 124M         | 3.11  | 3.12     |
-| gpt2-medium | 350M  | 2.85  | 2.84     |
-| gpt2-large | 774M   | 2.66  | 2.67     |
-| gpt2-xl | 1558M     | 2.56  | 2.54     |
-
-However, we have to note that GPT-2 was trained on (closed, never released) WebText, while OpenWebText is just a best-effort open reproduction of this dataset. This means there is a dataset domain gap. Indeed, taking the GPT-2 (124M) checkpoint and finetuning on OWT directly for a while reaches loss down to ~2.85. This then becomes the more appropriate baseline w.r.t. reproduction.
-
-## finetuning
-
-Finetuning is no different than training, we just make sure to initialize from a pretrained model and train with a smaller learning rate. For an example of how to finetune a GPT on new text go to `data/shakespeare` and run `prepare.py` to download the tiny shakespeare dataset and render it into a `train.bin` and `val.bin`, using the OpenAI BPE tokenizer from GPT-2. Unlike OpenWebText this will run in seconds. Finetuning can take very little time, e.g. on a single GPU just a few minutes. Run an example finetuning like:
-
-```sh
-python train.py config/finetune_shakespeare.py
+# length of dataset in characters:  1115394
+# all the unique characters:
+#  !$&',-.3:;?ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
+# vocab size: 65
+# train has 1003854 tokens
+# val has 111540 tokens
 ```
 
-This will load the config parameter overrides in `config/finetune_shakespeare.py` (I didn't tune them much though). Basically, we initialize from a GPT2 checkpoint with `init_from` and train as normal, except shorter and with a small learning rate. If you're running out of memory try decreasing the model size (they are `{'gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'}`) or possibly decreasing the `block_size` (context length). The best checkpoint (lowest validation loss) will be in the `out_dir` directory, e.g. in `out-shakespeare` by default, per the config file. You can then run the code in `sample.py --out_dir=out-shakespeare`:
+#### 2、创建训练配置文件
 
-```
-THEODORE:
-Thou shalt sell me to the highest bidder: if I die,
-I sell thee to the first; if I go mad,
-I sell thee to the second; if I
-lie, I sell thee to the third; if I slay,
-I sell thee to the fourth: so buy or sell,
-I tell thee again, thou shalt not sell my
-possession.
+先在config中创建一个train_hongloumeng_char_local.py文件
 
-JULIET:
-And if thou steal, thou shalt not sell thyself.
-
-THEODORE:
-I do not steal; I sell the stolen goods.
-
-THEODORE:
-Thou know'st not what thou sell'st; thou, a woman,
-Thou art ever a victim, a thing of no worth:
-Thou hast no right, no right, but to be sold.
+```bash
+cd nanogpt
+vi config/train_hongloumeng_char_local.py
 ```
 
-Whoa there, GPT, entering some dark place over there. I didn't really tune the hyperparameters in the config too much, feel free to try!
+写入下面的内容
 
-## sampling / inference
+```python
+# config/train_hongloumeng_char_local.py
 
-Use the script `sample.py` to sample either from pre-trained GPT-2 models released by OpenAI, or from a model you trained yourself. For example, here is a way to sample from the largest available `gpt2-xl` model:
+# train a miniature character-level shakespeare model
+# good for debugging and playing on macbooks and such
 
-```sh
-python sample.py \
-    --init_from=gpt2-xl \
-    --start="What is the answer to life, the universe, and everything?" \
-    --num_samples=5 --max_new_tokens=100
+out_dir = 'out-hongloumeng-char-local'
+eval_interval = 250 # keep frequent because we'll overfit
+eval_iters = 200
+log_interval = 10 # don't print too too often
+
+# we expect to overfit on this small dataset, so only save when val improves
+always_save_checkpoint = False
+
+wandb_log = False # override via command line if you like
+wandb_project = 'hongloumeng-char-local'
+wandb_run_name = 'mini-gpt'
+
+dataset = 'hongloumeng_char_local'
+gradient_accumulation_steps = 1
+batch_size = 64
+block_size = 256 # context of up to 256 previous characters
+
+# baby GPT model :)
+n_layer = 6
+n_head = 6
+n_embd = 384
+dropout = 0.2
+
+learning_rate = 1e-3 # with baby networks can afford to go a bit higher
+max_iters = 5000
+lr_decay_iters = 5000 # make equal to max_iters usually
+min_lr = 1e-4 # learning_rate / 10 usually
+beta2 = 0.99 # make a bit bigger because number of tokens per iter is small
+
+warmup_iters = 100 # not super necessary potentially
+
+# on macbook also add
+# device = 'cpu'  # run on cpu only
+# compile = False # do not torch compile the model
 ```
 
-If you'd like to sample from a model you trained, use the `--out_dir` to point the code appropriately. You can also prompt the model with some text from a file, e.g. ```python sample.py --start=FILE:prompt.txt```.
+#### 3、训练和测试
 
-## efficiency notes
+```bash
+cd nanogpt
+# 数据准备
+python data/hongloumeng_char_local/prepare.py
+# 训练
+python train.py config/train_hongloumeng_char_local.py
+# 测试
+python sample.py --out_dir=out-hongloumeng-char-local/
+```
 
-For simple model benchmarking and profiling, `bench.py` might be useful. It's identical to what happens in the meat of the training loop of `train.py`, but omits much of the other complexities.
+#### 4、训练结果
 
-Note that the code by default uses [PyTorch 2.0](https://pytorch.org/get-started/pytorch-2.0/). At the time of writing (Dec 29, 2022) this makes `torch.compile()` available in the nightly release. The improvement from the one line of code is noticeable, e.g. cutting down iteration time from ~250ms / iter to 135ms / iter. Nice work PyTorch team!
+```shell
+step 0: train loss 8.4504, val loss 8.4506
+iter 0: loss 8.4499, time 16598.15ms, mfu -100.00%
+iter 10: loss 7.6026, time 29.95ms, mfu 14.21%
+iter 20: loss 6.8748, time 30.21ms, mfu 14.19%
+iter 30: loss 6.0137, time 13.99ms, mfu 15.82%
+iter 40: loss 5.6637, time 30.12ms, mfu 15.65%
+... ...
+iter 4890: loss 1.4662, time 30.37ms, mfu 16.18%
+iter 4900: loss 1.4400, time 15.54ms, mfu 17.30%
+iter 4910: loss 1.4483, time 26.49ms, mfu 17.17%
+iter 4920: loss 1.4610, time 30.31ms, mfu 16.86%
+iter 4930: loss 1.4936, time 25.88ms, mfu 16.82%
+iter 4940: loss 1.4505, time 30.22ms, mfu 16.54%
+iter 4950: loss 1.4753, time 30.46ms, mfu 16.29%
+iter 4960: loss 1.4595, time 30.15ms, mfu 16.07%
+iter 4970: loss 1.4530, time 30.21ms, mfu 15.87%
+iter 4980: loss 1.4654, time 30.35ms, mfu 15.69%
+iter 4990: loss 1.4377, time 30.32ms, mfu 15.52%
+```
 
-## todos
+#### 5、测试结果
 
-- Investigate and add FSDP instead of DDP
-- Eval zero-shot perplexities on standard evals (e.g. LAMBADA? HELM? etc.)
-- Finetune the finetuning script, I think the hyperparams are not great
-- Schedule for linear batch size increase during training
-- Incorporate other embeddings (rotary, alibi)
-- Separate out the optim buffers from model params in checkpoints I think
-- Additional logging around network health (e.g. gradient clip events, magnitudes)
-- Few more investigations around better init etc.
+```shell
+---------------
 
-## troubleshooting
+宝钗笑道：“二爷，你也太和姑娘说话。”宝钗笑道：“你又说了。我今儿又病了，怎么好呢？”宝钗笑道：“走罢！”黛玉笑道：“你别慌我，我告诉你，我也不依。”宝钗道：“可不是，不过是北静王妃，北静王得病，实在没有什么话说。”宝钗笑道：“你们只管说话，我就不用说话了。”宝钗笑道：“你们不必说话，你们索性说说了。”宝钗道：“我自然明说了，你们宝兄弟明日再和这话，我叫你打发出去。”
 
-Note that by default this repo uses PyTorch 2.0 (i.e. `torch.compile`). This is fairly new and experimental, and not yet available on all platforms (e.g. Windows). If you're running into related error messages try to disable this by adding `--compile=False` flag. This will slow down the code but at least it will run.
+宝钗笑道：“你们都去。”宝钗笑道：“既这样说，你再要是个话，你也要弄个谜儿。”宝钗笑道：“你只要猜着了。我也猜着了，就把‘五’，那三个韵。”黛玉道：“我到底分上个社长得好。”说着便饮了。宝钗笑道：“这个个社还要‘蘅芜君’。”香菱笑道：“我也古人古怪，‘春’忆‘，‘，鹤’韵’犹觉‘。”宝钗道：“倒是‘蘅芜苑’。”湘云道：“更妙，‘月’忆秋‘，便得很湍’，‘秋’二字。‘杏花忆菊’忆菊’，‘忆菊’二字，其菊’不觉染‘，尽忆‘钗’忆蕉菊’。分菊如钗也‘。忆菊时亦关，所为菊，也觉得不能尽己无韵。“后事有菊想来，故不得有访，不觉菊花不菊却意，菊影花又合而菊有，依菊也难忆菊为枝菊。不既寻忆故事，菊便是《菊看菊花，菊花，菊蕉叶菊花菊花
+---------------
+```
 
-For some context on this repository, GPT, and language modeling it might be helpful to watch my [Zero To Hero series](https://karpathy.ai/zero-to-hero.html). Specifically, the [GPT video](https://www.youtube.com/watch?v=kCc8FmEb1nY) is popular if you have some prior language modeling context.
-
-For more questions/discussions feel free to stop by **#nanoGPT** on Discord:
-
-[![](https://dcbadge.vercel.app/api/server/3zy8kqD9Cp?compact=true&style=flat)](https://discord.gg/3zy8kqD9Cp)
-
-## acknowledgements
-
-All nanoGPT experiments are powered by GPUs on [Lambda labs](https://lambdalabs.com), my favorite Cloud GPU provider. Thank you Lambda labs for sponsoring nanoGPT!
